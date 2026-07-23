@@ -5,7 +5,7 @@
 ---
 
 ## 1. System Architecture Diagram
-![alt text](image.png)
+<img width="977" height="787" alt="cinema ticket booking system" src="https://github.com/user-attachments/assets/7ea23a9e-9d15-465c-acb1-c182a6168873" />
 
 ฝั่ง Frontend คุยกับ Backend ผ่าน Nginx ทั้ง REST API, OAuth redirect และ WebSocket ในคอนเทนเนอร์เดียว ส่วน Backend ภายในเป็น HTTP handler, WebSocket hub และ Kafka producer/consumer (รันเป็น goroutine คู่ขนานกัน) 
 
