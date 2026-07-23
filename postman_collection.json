@@ -1,0 +1,279 @@
+{
+  "info": {
+    "name": "Cinema Ticket Booking System",
+    "description": "API collection for the Cinema Ticket Booking System.\n\n**การใช้งาน Auth:**\n1. เปิดเบราว์เซอร์ไปที่ http://localhost:8080/auth/google/login แล้ว login ผ่าน Google ให้จบ (จะ redirect ไปที่ frontend พร้อม token ต่อท้าย URL เช่น http://localhost:5173/oauth/callback?token=eyJ...)\n2. คัดลอกค่า token ที่ได้ มาใส่ใน collection variable ชื่อ `token` (คลิกที่ชื่อ Collection > Variables)\n3. ทุก request ที่ต้อง login จะแนบ `Authorization: Bearer {{token}}` ให้อัตโนมัติ\n4. ถ้าอยากทดสอบ endpoint ของ Admin ให้ promote user ให้เป็น admin ก่อนผ่าน mongosh (ดู README หัวข้อ 6) แล้วค่อย login ใหม่/ใช้ token เดิมได้เลย (role เช็คสดจาก DB ไม่ต้อง login ใหม่)\n\nRequest บางตัว (Lock Seats, Create Booking) มี test script ที่ดึงค่า `lock_token` / `booking_id` จาก response มาเก็บใน collection variable ให้อัตโนมัติ เพื่อให้ request ถัดไปในลำดับ (lock → create booking → pay) ใช้ต่อได้เลยโดยไม่ต้อง copy-paste เอง",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "movie_id", "value": "movie-midnight-in-lumen", "type": "string" },
+    { "key": "showtime_id", "value": "movie-midnight-in-lumen-show-2", "type": "string" },
+    { "key": "seat_label", "value": "A1", "type": "string" },
+    { "key": "lock_token", "value": "", "type": "string" },
+    { "key": "booking_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+            "description": "ตอบ ok เสมอถ้า process ยังรันอยู่ ไม่เช็ค dependency ใดๆ"
+          }
+        },
+        {
+          "name": "Readiness check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/health/ready", "host": ["{{base_url}}"], "path": ["health", "ready"] },
+            "description": "เช็ค connectivity ไปยัง MongoDB/Redis/Kafka จริง คืน 503 พร้อมระบุตัวที่พัง ถ้ามีอันไหนต่อไม่ได้"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login with Google (open in browser, not Postman)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/auth/google/login", "host": ["{{base_url}}"], "path": ["auth", "google", "login"] },
+            "description": "เปิด URL นี้ในเบราว์เซอร์จริง ไม่ใช่กดใน Postman เพราะต้อง redirect ไป Google consent screen แล้ว Google จะ redirect กลับมาที่ /auth/google/callback ให้เอง จากนั้น backend จะ redirect ต่อไปที่ frontend พร้อม JWT token ต่อท้าย URL — คัดลอก token นั้นมาใส่ใน collection variable `token`"
+          }
+        },
+        {
+          "name": "Get current user (/me)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/me", "host": ["{{base_url}}"], "path": ["api", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog (public)",
+      "item": [
+        {
+          "name": "List movies",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/movies", "host": ["{{base_url}}"], "path": ["api", "movies"] }
+          }
+        },
+        {
+          "name": "Get movie by id",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/movies/{{movie_id}}", "host": ["{{base_url}}"], "path": ["api", "movies", "{{movie_id}}"] }
+          }
+        },
+        {
+          "name": "List showtimes for movie",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/movies/{{movie_id}}/showtimes", "host": ["{{base_url}}"], "path": ["api", "movies", "{{movie_id}}", "showtimes"] }
+          }
+        },
+        {
+          "name": "Get showtime by id",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/showtimes/{{showtime_id}}", "host": ["{{base_url}}"], "path": ["api", "showtimes", "{{showtime_id}}"] }
+          }
+        },
+        {
+          "name": "Get seat map for showtime",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/showtimes/{{showtime_id}}/seats", "host": ["{{base_url}}"], "path": ["api", "showtimes", "{{showtime_id}}", "seats"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seats (requires login)",
+      "item": [
+        {
+          "name": "Lock seats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.lock_token) {",
+                  "        pm.collectionVariables.set('lock_token', body.lock_token);",
+                  "        console.log('Saved lock_token:', body.lock_token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/showtimes/{{showtime_id}}/seats/lock",
+              "host": ["{{base_url}}"],
+              "path": ["api", "showtimes", "{{showtime_id}}", "seats", "lock"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seat_labels\": [\"{{seat_label}}\"]\n}"
+            },
+            "description": "ล็อกที่นั่งด้วย Redis distributed lock (TTL ตาม LOCK_TTL_SECONDS ค่า default 300 วินาที) response จะมี lock_token เก็บไว้อัตโนมัติผ่าน test script เพื่อใช้ต่อใน Create Booking"
+          }
+        },
+        {
+          "name": "Unlock seats",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/showtimes/{{showtime_id}}/seats/unlock",
+              "host": ["{{base_url}}"],
+              "path": ["api", "showtimes", "{{showtime_id}}", "seats", "unlock"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seat_labels\": [\"{{seat_label}}\"],\n  \"lock_token\": \"{{lock_token}}\"\n}"
+            },
+            "description": "ปลดล็อกที่นั่งก่อนหมดเวลา (ต้องเป็น lock_token เดียวกับที่ล็อกไว้)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings (requires login)",
+      "item": [
+        {
+          "name": "Create booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('booking_id', body.id);",
+                  "        console.log('Saved booking_id:', body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/bookings", "host": ["{{base_url}}"], "path": ["api", "bookings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"showtime_id\": \"{{showtime_id}}\",\n  \"seat_labels\": [\"{{seat_label}}\"],\n  \"lock_token\": \"{{lock_token}}\"\n}"
+            },
+            "description": "ต้องล็อกที่นั่ง (Lock seats) ให้สำเร็จก่อน ถึงจะสร้าง booking ได้ - ใช้ lock_token ที่ได้จาก request ก่อนหน้า"
+          }
+        },
+        {
+          "name": "Get booking by id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/bookings/{{booking_id}}", "host": ["{{base_url}}"], "path": ["api", "bookings", "{{booking_id}}"] }
+          }
+        },
+        {
+          "name": "Pay booking (success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/bookings/{{booking_id}}/pay", "host": ["{{base_url}}"], "path": ["api", "bookings", "{{booking_id}}", "pay"] },
+            "body": { "mode": "raw", "raw": "{\n  \"result\": \"success\"\n}" }
+          }
+        },
+        {
+          "name": "Pay booking (simulate failure)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/bookings/{{booking_id}}/pay", "host": ["{{base_url}}"], "path": ["api", "bookings", "{{booking_id}}", "pay"] },
+            "body": { "mode": "raw", "raw": "{\n  \"result\": \"fail\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin (requires ADMIN role)",
+      "item": [
+        {
+          "name": "List all bookings (no filter)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/admin/bookings", "host": ["{{base_url}}"], "path": ["api", "admin", "bookings"] }
+          }
+        },
+        {
+          "name": "List bookings (filtered)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/admin/bookings?movie_id={{movie_id}}&date=&user_email=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "bookings"],
+              "query": [
+                { "key": "movie_id", "value": "{{movie_id}}" },
+                { "key": "date", "value": "", "description": "รูปแบบ YYYY-MM-DD" },
+                { "key": "user_email", "value": "", "description": "ค้นหาแบบ substring, case-insensitive" }
+              ]
+            },
+            "description": "ทุก query param เป็น optional และ AND กันได้ (ใส่ค่าไหนว่างไว้ = ไม่ filter ตัวนั้น)"
+          }
+        },
+        {
+          "name": "List audit logs",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/admin/audit-logs", "host": ["{{base_url}}"], "path": ["api", "admin", "audit-logs"] },
+            "description": "คืนค่า audit log ล่าสุด 200 รายการ เรียงใหม่สุดก่อน (BOOKING_SUCCESS, BOOKING_TIMEOUT, SEAT_RELEASED, SYSTEM_ERROR)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "WebSocket (ไม่ใช่ REST - ดูวิธีทดสอบในคำอธิบาย)",
+      "item": [
+        {
+          "name": "Seat map realtime updates",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "ws://localhost:8080/ws/showtimes/{{showtime_id}}?token={{token}}",
+              "raw_note": "not a real REST call"
+            },
+            "description": "นี่ไม่ใช่ REST endpoint แต่เป็น WebSocket - Postman เวอร์ชันใหม่ (v10+) รองรับการสร้าง WebSocket Request แยกได้ (New > WebSocket Request) ให้ paste URL นี้ (แทน localhost:8080 ด้วยที่อยู่จริง และ {{token}} ด้วย JWT จริง) แล้วกด Connect จะเห็น event แบบ {\"type\":\"seat.locked\",\"showtime_id\":\"...\",\"seat_labels\":[...]} ส่งเข้ามาแบบ real-time ทุกครั้งที่มีคนล็อก/ปล่อย/จองที่นั่งสำเร็จในรอบฉายนี้"
+          }
+        }
+      ]
+    }
+  ]
+}
